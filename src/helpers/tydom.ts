@@ -54,6 +54,10 @@ export const getTydomDeviceData = async <T extends TydomEndpointData = TydomEndp
     }
     return res.data ? res.data : res;
   }) as Promise<T>;
+  // Clear cache on rejection so failed promises don't poison subsequent reads
+  promise.catch(() => {
+    cacheMap.delete(uri);
+  });
   cacheMap.set(uri, { time: now, promise });
   return promise;
 };
@@ -80,6 +84,10 @@ export const runTydomDeviceCommand = async <T extends Record<string, unknown> = 
     }
   }
   const promise = client.command<T>(uri);
+  // Clear cache on rejection so failed promises don't poison subsequent reads
+  promise.catch(() => {
+    cacheMap.delete(uri);
+  });
   cacheMap.set(uri, { time: now, promise });
   return promise;
 };
