@@ -1,14 +1,14 @@
 {
-  "name": "homebridge-tydom",
+  "name": "homebridge-tydom-cedriceugeni",
   "version": "0.29.0",
   "description": "Homebridge plugin to manage Tydom devices by Delta Dore",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "bin": {
-    "homebridge-tydom": "./dist/bin/cli.js"
-  },
   "author": "Olivier Louvignes <olivier@mgcrea.io>",
-  "repository": "github:mgcrea/homebridge-tydom",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CedricEugeni/homebridge-tydom.git"
+  },
   "license": "MIT",
   "keywords": [
     "homebridge-plugin"

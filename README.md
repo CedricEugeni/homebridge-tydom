@@ -53,7 +53,7 @@
   "private": true,
   "description": "This file keeps track of which plugins should be installed.",
   "dependencies": {
-    "homebridge-tydom": "^0.25.1"
+    "homebridge-tydom-cedriceugeni": "^0.29.0"
   }
 }
 ```

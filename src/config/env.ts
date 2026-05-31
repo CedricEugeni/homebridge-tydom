@@ -1,4 +1,4 @@
-export const PLUGIN_NAME = "homebridge-tydom";
+export const PLUGIN_NAME = "homebridge-tydom-cedriceugeni";
 export const PLATFORM_NAME = "Tydom";
 export const {
   DEBUG,
