@@ -20,9 +20,10 @@ import { stringifyError } from "src/utils/error";
 
 export type TydomPlatformConfig = PlatformConfig & {
   hostname: string;
+  localHostname?: string;
   username: string;
   password: string;
-  settings: Record<string, { name?: string; category?: Categories }>;
+  settings?: Record<string, { name?: string; category?: Categories } | undefined>;
   debug?: boolean;
   webhooks?: Webhook[];
   includedDevices?: string[];
@@ -30,6 +31,7 @@ export type TydomPlatformConfig = PlatformConfig & {
   excludedDevices?: string[];
   excludedCategories?: string[];
   refreshInterval?: number;
+  primaryRetryInterval?: number;
 };
 
 export default class TydomPlatform implements DynamicPlatformPlugin {

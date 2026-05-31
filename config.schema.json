@@ -13,6 +13,21 @@
         "required": true,
         "default": "mediation.tydom.com"
       },
+      "localHostname": {
+        "title": "Local Tydom hostname",
+        "description": "Optional local Tydom IP or hostname used as a fallback when the primary hostname is unavailable.",
+        "type": "string",
+        "required": false,
+        "default": ""
+      },
+      "primaryRetryInterval": {
+        "title": "Primary retry interval",
+        "description": "Seconds between attempts to restore the primary hostname while local fallback is active.",
+        "type": "number",
+        "required": false,
+        "default": 300,
+        "minimum": 30
+      },
       "username": {
         "title": "Tydom username",
         "type": "string",
@@ -40,5 +55,5 @@
       }
     }
   },
-  "form": ["hostname", "username", "password", "settings"]
+  "form": ["hostname", "localHostname", "primaryRetryInterval", "username", "password", "settings"]
 }

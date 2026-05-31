@@ -73,6 +73,7 @@
     {
       "platform": "Tydom",
       "hostname": "mediation.tydom.com",
+      "localHostname": "192.168.0.X",
       "username": "001A25123456",
       "password": "YourPassw0rd",
       "debug": true
@@ -104,7 +105,7 @@ As HomeKit security system has 3 active levels: `stay`, `night`, `away` you can 
   "platforms": [
     {
       "settings": {
-        "1521931577": {"aliases": {"stay": [3], "night": [2, 3]}}
+        "1521931577": { "aliases": { "stay": [3], "night": [2, 3] } }
       }
     }
   ]
@@ -120,7 +121,7 @@ You can either add a `pin` field:
   "platforms": [
     {
       "settings": {
-        "1521931577": {"pin": "123456", "aliases": {"stay": [3], "night": [2, 3]}}
+        "1521931577": { "pin": "123456", "aliases": { "stay": [3], "night": [2, 3] } }
       }
     }
   ]
@@ -136,7 +137,7 @@ You can optionnaly rename zones (default is `Zone 1`, `Zone 2`, etc.),
   "platforms": [
     {
       "settings": {
-        "1521931577": {"zones": ["1st Floor", "Ground Floor", "Garden"]}
+        "1521931577": { "zones": ["1st Floor", "Ground Floor", "Garden"] }
       }
     }
   ]
@@ -154,7 +155,7 @@ Value is in milliseconds:
   "platforms": [
     {
       "settings": {
-        "1529094720": {"delay": 10000} // 10 seconds
+        "1529094720": { "delay": 10000 } // 10 seconds
       }
     }
   ]
@@ -168,7 +169,7 @@ You can also configure an `autoCloseDelay`
   "platforms": [
     {
       "settings": {
-        "1529094720": {"autoCloseDelay": 300000} // 5 minutes
+        "1529094720": { "autoCloseDelay": 300000 } // 5 minutes
       }
     }
   ]
@@ -208,7 +209,7 @@ You can override categories of devices (eg. some light switch used to manage a f
   "platforms": [
     {
       "settings": {
-        "1528565701": {"category": 3}
+        "1528565701": { "category": 3 }
       }
     }
   ]
@@ -239,25 +240,139 @@ Some other hardware that should work thanks to the community feedback:
 
 It is relatively easy to add new hardware so don't hesitate to create a new issue.
 
-### Notes
+### Local mode and fallback
 
-You can also use your local tydom IP (eg `192.168.0.X`) for `hostname`, however:
+By default, the plugin connects to the Delta Dore remote mediation server using `hostname`, usually `mediation.tydom.com`. You can enable a local fallback by keeping `hostname` on the remote server and adding `localHostname` with the local IP or hostname of your Tydom bridge.
 
-- You must set environment var `NODE_TLS_REJECT_UNAUTHORIZED=0` to interact with the self-signed certificate.
-- Tydom 2.0 firmware can sometimes have trouble dealing multiple local clients, locking you away from the mobile app.
+With this setup, the plugin first tries the primary `hostname`. If the remote server is unavailable at startup or during normal use, it switches to `localHostname` and keeps HomeKit working through your local network. While the local fallback is active, the plugin does not try both hosts for every request; instead, it retries the primary hostname every `primaryRetryInterval` seconds and switches back to the remote connection as soon as it is available again.
+
+Example configuration:
+
+```json
+{
+  "platform": "Tydom",
+  "hostname": "mediation.tydom.com",
+  "localHostname": "192.168.0.X",
+  "primaryRetryInterval": 300,
+  "username": "001A25XXXXXX",
+  "password": "YourPassw0rd",
+  "debug": true
+}
+```
+
+Relevant fields:
+
+| **Field**              | **Description**                                                                                 |
+| ---------------------- | ----------------------------------------------------------------------------------------------- |
+| `hostname`             | Primary Tydom endpoint. Use `mediation.tydom.com` for the regular remote Delta Dore connection. |
+| `localHostname`        | Optional local Tydom IP or hostname used when the primary endpoint is unavailable.              |
+| `primaryRetryInterval` | Optional retry interval, in seconds, while running on the local fallback. Defaults to `300`.    |
+
+To find the local IP of your Tydom bridge, the most reliable method is to open your router or internet box administration page and look at the DHCP/client list. Search for a device named `Tydom`, `Delta Dore`, or for a MAC address starting with `00:1A:25`, which matches the usual Tydom username prefix. You can then verify the IP from a terminal with:
+
+```sh
+curl -k "https://192.168.0.X/mediation/client?mac=001A25XXXXXX&appli=1"
+```
+
+A `401 Unauthorized` response is expected and means the Tydom bridge is reachable locally.
+
+Tydom 2.0 firmware can sometimes have trouble dealing with multiple local clients, locking you away from the mobile app. If the mobile app stops working locally during tests, stop Homebridge and wait a short moment before trying again.
+
+### Legacy TLS/OpenSSL for local mode
+
+The local Tydom bridge uses a self-signed certificate, and some firmware versions also require legacy TLS renegotiation. For local mode, `NODE_TLS_REJECT_UNAUTHORIZED=0` is usually required. On recent Node.js/OpenSSL versions, you may also see an error such as `ERR_SSL_UNSAFE_LEGACY_RENEGOTIATION_DISABLED`; in that case, configure OpenSSL legacy renegotiation for the Homebridge Node.js process.
+
+Only enable this for a trusted Homebridge process that needs local Tydom access.
+
+#### Case 1: You start Homebridge yourself from a shell
+
+Create an OpenSSL configuration file:
+
+```sh
+mkdir -p "$HOME/.homebridge"
+cat > "$HOME/.homebridge/openssl-legacy.cnf" <<'EOF'
+openssl_conf = openssl_init
+
+[openssl_init]
+ssl_conf = ssl_sect
+
+[ssl_sect]
+system_default = system_default_sect
+
+[system_default_sect]
+Options = UnsafeLegacyRenegotiation
+EOF
+```
+
+Then start Homebridge with the two Node/OpenSSL environment variables added to your usual command:
+
+```sh
+NODE_TLS_REJECT_UNAUTHORIZED=0 \
+NODE_OPTIONS="--openssl-shared-config --openssl-config=$HOME/.homebridge/openssl-legacy.cnf" \
+homebridge
+```
+
+If you usually pass a custom Homebridge user directory, keep it at the end of the same command:
+
+```sh
+NODE_TLS_REJECT_UNAUTHORIZED=0 \
+NODE_OPTIONS="--openssl-shared-config --openssl-config=$HOME/.homebridge/openssl-legacy.cnf" \
+homebridge -U /path/to/homebridge
+```
+
+#### Case 2: You use the Homebridge Raspberry Pi image
+
+On the official Homebridge Raspberry Pi image, open the terminal from the Homebridge web interface and run the following commands. They create the OpenSSL configuration in `/var/lib/homebridge` and add the environment variables to the `homebridge` systemd service.
+
+```sh
+sudo tee /var/lib/homebridge/openssl-legacy.cnf > /dev/null <<'EOF'
+openssl_conf = openssl_init
+
+[openssl_init]
+ssl_conf = ssl_sect
+
+[ssl_sect]
+system_default = system_default_sect
+
+[system_default_sect]
+Options = UnsafeLegacyRenegotiation
+EOF
+
+sudo mkdir -p /etc/systemd/system/homebridge.service.d
+sudo tee /etc/systemd/system/homebridge.service.d/override.conf > /dev/null <<'EOF'
+[Service]
+Environment="NODE_TLS_REJECT_UNAUTHORIZED=0"
+Environment="NODE_OPTIONS=--openssl-shared-config --openssl-config=/var/lib/homebridge/openssl-legacy.cnf"
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl restart homebridge
+```
+
+After the restart, check the Homebridge logs from the web interface. If the local Tydom connection works, you should see the plugin connect to `localHostname` when the primary host is unavailable.
+
+To remove this OpenSSL override later:
+
+```sh
+sudo rm /etc/systemd/system/homebridge.service.d/override.conf
+sudo systemctl daemon-reload
+sudo systemctl restart homebridge
+```
 
 ### Configurations
 
-| **Field**          | **Type**            | **Description**             |                                            |
-| ------------------ | ------------------- | --------------------------- | ------------------------------------------ |
-| hostname           | `string`            | Tydom hostname              |                                            |
-| username           | `string`            | Tydom username              |                                            |
-| password           | `string`            | Tydom password              |                                            |
-| settings           | `Record<string, ?>` | Device settings (overrides) |                                            |
-| includedDevices    | `Array<string>`     | number>                     | Include only devices with following ids    |
-| excludedDevices    | `Array<string>`     | number>                     | Exclude all devices with following ids     |
-| includedCategories | `Array<string>`     | number>                     | Include only categories with following ids |
-| excludedCategories | `Array<string>`     | number>                     | Exclude all categories with following ids  |
+| **Field**            | **Type**            | **Description**             |                                            |
+| -------------------- | ------------------- | --------------------------- | ------------------------------------------ |
+| hostname             | `string`            | Tydom hostname              |                                            |
+| localHostname        | `string`            | Local Tydom fallback host   | Optional local IP or hostname              |
+| primaryRetryInterval | `number`            | Primary retry interval      | Seconds, defaults to `300`                 |
+| username             | `string`            | Tydom username              |                                            |
+| password             | `string`            | Tydom password              |                                            |
+| settings             | `Record<string, ?>` | Device settings (overrides) |                                            |
+| includedDevices      | `Array<string>`     | number>                     | Include only devices with following ids    |
+| excludedDevices      | `Array<string>`     | number>                     | Exclude all devices with following ids     |
+| includedCategories   | `Array<string>`     | number>                     | Include only categories with following ids |
+| excludedCategories   | `Array<string>`     | number>                     | Exclude all categories with following ids  |
 
 - The `settings` field enables you to override the name or homekit category of your Tydom device (check homebridge log for the device ids).
 
